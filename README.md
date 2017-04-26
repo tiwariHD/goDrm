@@ -9,17 +9,17 @@ Device info stored as:
         },
         "Info": {
             "BusInfo": {
-                "Domain": 50576,
-                "Bus": 144,
-                "Dev": 1,
+                "Domain": 0,
+                "Bus": 1,
+                "Dev": 0,
                 "Func": 0
             },
             "DevInfo": {
-                "VendorId": 50582,
-                "DeviceId": 400,
-                "SubVendorid": 0,
-                "SubDeviceId": 0,
-                "RevisionId": 72
+                "VendorId": 4098,
+                "DeviceId": 38340,
+                "SubVendorid": 6058,
+                "SubDeviceId": 8463,
+                "RevisionId": 0
             }
         }
     },
@@ -31,17 +31,17 @@ Device info stored as:
         },
         "Info": {
             "BusInfo": {
-                "Domain": 51056,
-                "Bus": 144,
-                "Dev": 1,
+                "Domain": 0,
+                "Bus": 0,
+                "Dev": 2,
                 "Func": 0
             },
             "DevInfo": {
-                "VendorId": 51062,
-                "DeviceId": 400,
-                "SubVendorid": 0,
-                "SubDeviceId": 0,
-                "RevisionId": 40
+                "VendorId": 32902,
+                "DeviceId": 10818,
+                "SubVendorid": 6058,
+                "SubDeviceId": 8467,
+                "RevisionId": 7
             }
         }
     }
