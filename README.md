@@ -1,3 +1,4 @@
+```
 #Device info stored as:
 [
     {
@@ -122,4 +123,4 @@
     "code": 2,
     "msg": "Command not specified"
 }
-
+```
