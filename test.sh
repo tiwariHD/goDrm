@@ -1,5 +1,8 @@
 #!/bin/bash
 
+#for static builds
+go install -ldflags '-extldflags "-static -lm"'
+
 echo "#cat drm.conf"
 cat drm.conf
 

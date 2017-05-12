@@ -86,6 +86,21 @@ func jsonOut(i interface{}) {
     fmt.Println(string(out))
 }
 
+func isDirExists(dpath string) (ret bool) {
+
+    if _, err := os.Stat(DRMPATH); err == nil {
+        ret = true
+    } else if os.IsNotExist(err) {
+        fmt.Println("FALSE")
+    } else {
+        jsonOut(ErrorReply{conf.CdiVersion, ERR_OTHER,
+        ERR_MSG[ERR_OTHER], fmt.Sprintf("Error: %s", err)})
+        os.Exit(1)
+    }
+
+    return
+}
+
 func isDirEmpty(dpath string) bool {
 
     f, err := os.Open(dpath)
@@ -106,6 +121,14 @@ func isDirEmpty(dpath string) bool {
 
 }
 
+func makeDir(dpath string) {
+        if err := os.Mkdir(dpath, os.ModePerm); err != nil {
+            jsonOut(ErrorReply{conf.CdiVersion, ERR_OTHER,
+            ERR_MSG[ERR_OTHER], fmt.Sprintf("Error: %s", err)})
+            os.Exit(1)
+        }
+}
+
 func getDeviceId(d goDrmSys.DeviceInfo) string {
 
     // returns pci ids
@@ -122,6 +145,10 @@ func info() (r InfoReply, e ErrorReply, nodes NodePaths) {
     nodes.DirPath = make([]string, len(dev))
     nodes.DevNames = make([]goDrmSys.DeviceNodes, len(dev))
 
+    if isDirExists(DRMPATH) == false {
+        makeDir(DRMPATH)
+    }
+
     // parses device data
     for i := 0; i <  len(dev); i++ {
         r.Device[i] = getDeviceId(dev[i].Info)
@@ -133,11 +160,7 @@ func info() (r InfoReply, e ErrorReply, nodes NodePaths) {
     if isDirEmpty(DRMPATH) == true {
         for i := 0; i < len(dev); i++ {
         // make dirs for devs
-            if err := os.Mkdir(nodes.DirPath[i], os.ModePerm); err != nil {
-                e = ErrorReply{conf.CdiVersion, ERR_OTHER,
-                ERR_MSG[ERR_OTHER], fmt.Sprintf("Error: %s", err)}
-                return
-            }
+            makeDir(nodes.DirPath[i])
         }
     }
 
