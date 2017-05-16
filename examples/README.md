@@ -91,7 +91,7 @@
 
 #env CDI_VERSION=0.0.1 CDI_COMMAND=MYCMD ./goDrmCdi < drm.conf
 {
-    "cdiVersion": "",
+    "cdiVersion": "0.0.1",
     "code": 3,
     "msg": "Command not supported",
     "details": "Unsupported command MYCMD"
@@ -99,7 +99,7 @@
 
 #env CDI_VERSION=0.0.1 CDI_REQUEST=gpu:1 ./goDrmCdi < drm.conf
 {
-    "cdiVersion": "",
+    "cdiVersion": "0.0.1",
     "code": 100,
     "msg": "Command not specified"
 }

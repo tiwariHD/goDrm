@@ -416,9 +416,11 @@ func main() {
 		jsonOut(r)
 
 	case EMPTY:
+		checkCdiVersions()
 		errorMsgOut(ERR_CMD_EMPTY, "")
 
 	default:
+		checkCdiVersions()
 		errorMsgOut(ERR_COMMAND_UNSUPPORT, fmt.Sprintf("Unsupported command %s", command))
 	}
 }
