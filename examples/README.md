@@ -1,3 +1,4 @@
+## Output of examples.sh
 ```
 #cat drm.conf
 {
