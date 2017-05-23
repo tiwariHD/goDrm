@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package commandProto;
+
+// The CmdProto service definition.
+service CmdProto {
+  // Sends command reply
+  rpc getReply (CmdRequest) returns (CmdReply) {}
+}
+
+// The request message containing the command name.
+message CmdRequest {
+  string version = 1;
+  string command = 2;
+  string request = 3;
+  string requestId = 4;
+}
+
+// The response message containing the result
+message CmdReply {
+  bytes message = 1;
+}
