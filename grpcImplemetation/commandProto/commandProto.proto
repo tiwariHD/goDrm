@@ -5,18 +5,60 @@ package commandProto;
 // The CmdProto service definition.
 service CmdProto {
   // Sends command reply
-  rpc getReply (CmdRequest) returns (CmdReply) {}
+  rpc Version (Empty) returns (VersionReply) {}
+  rpc Info (Empty) returns (InfoReply) {}
+  rpc Add (AddRequest) returns (AddReply) {}
+  rpc Del (DelRequest) returns (DelReply) {}
 }
 
-// The request message containing the command name.
-message CmdRequest {
+//Empty for Null request
+message Empty {}
+
+//AddRequest for ADD command input
+message AddRequest {
   string version = 1;
-  string command = 2;
-  string request = 3;
-  string requestId = 4;
+  string request = 2;
+  string requestId = 3;
 }
 
-// The response message containing the result
-message CmdReply {
-  bytes message = 1;
+//DelRequest for DEL command input
+message DelRequest {
+  string version = 1;
+  string request = 2;
+  string requestId = 3;
+}
+
+//ErrorReply for error message output
+message ErrorReply {
+	string cdiVersion = 1;
+	int32 code = 2;
+	string msg = 3;
+	string details = 4;
+}
+
+//VersionReply for VERSION command output
+message VersionReply {
+	string cdiVersion = 1;
+	repeated string supportedVersions = 2;
+}
+
+//InfoReply for REPLY command output
+message InfoReply {
+	string cdiVersion = 1;
+	int32 gpu = 2;
+	repeated string devices = 3;
+  ErrorReply infoError = 4;
+}
+
+//AddReply for ADD command output
+message AddReply {
+	string cdiVersion = 1;
+	repeated string devices = 2;
+  ErrorReply addError = 3;
+}
+
+//DelReply for DEL command output
+message DelReply {
+	string cdiVersion = 1;
+  ErrorReply delError = 2;
 }

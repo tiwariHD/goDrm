@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -16,7 +17,7 @@ import (
 
 	"github.com/tiwariHD/goDrmSys"
 
-	pb "github.com/tiwariHD/commandProto"
+	pb "github.com/tiwariHD/goDrmCdi/grpcImplemetation/commandProto"
 	"golang.org/x/net/context"
 )
 
@@ -29,7 +30,7 @@ const (
 	EMPTY         = ""
 	DRMPATH       = "../drmFiles"
 	VERSIONPLUGIN = "0.0.2"
-	port          = ":50051"
+	PORT          = ":50051"
 )
 
 //constants for error codes in spec (0-99)
@@ -87,38 +88,6 @@ type DrmConf struct {
 	Args       ArgStr `json:"args"`
 }
 
-//VersionReply for VERSION command output
-type VersionReply struct {
-	CdiVersion        string   `json:"cdiVersion"`
-	SupportedVersions []string `json:"supportedVersions"`
-}
-
-//InfoReply for REPLY command output
-type InfoReply struct {
-	CdiVersion string   `json:"cdiVersion"`
-	Gpu        int      `json:"gpu"`
-	Devices    []string `json:"devices"`
-}
-
-//AddReply for ADD command output
-type AddReply struct {
-	CdiVersion string   `json:"cdiVersion"`
-	Devices    []string `json:"devices"`
-}
-
-//DelReply for DEL command output
-type DelReply struct {
-	CdiVersion string `json:"cdiVersion"`
-}
-
-//ErrorReply for error message output
-type ErrorReply struct {
-	CdiVersion string `json:"cdiVersion"`
-	Code       int    `json:"code"`
-	Msg        string `json:"msg"`
-	Details    string `json:"details,omitempty"`
-}
-
 //ArgStr contains fields for arguments in conf file
 type ArgStr struct {
 	WantDeviceNodes   []string `json:"want_device_nodes"`
@@ -134,43 +103,39 @@ type GpuInfo struct {
 	DevNames []goDrmSys.DeviceNodes
 }
 
-//getJsonStruct prints json ouput on stdin
-func getJsonStruct(i interface{}) []byte {
-	out, _ := json.MarshalIndent(i, "", "    ")
-	//fmt.Printf("%s\n", out)
-	return out
-}
-
 //getErrorStruct is wrapper function for fetching error details
-func (e *ErrorReply) getErrorStruct(err int, detail string) {
-	//*e = ErrorReply{envCdiVersion, err, errorMsg[err], msg}
+func getErrorStruct(err int, detail string) pb.ErrorReply {
+	var e pb.ErrorReply
+
 	e.CdiVersion = envCdiVersion
-	e.Code = err
+	e.Code = int32(err)
 	e.Msg = errorMsg[err]
 	e.Details = detail
+
+	return e
 }
 
 //isDirExists checks whether directory already exists
-func isDirExists(dpath string) (bool, ErrorReply) {
-	var e ErrorReply
+func isDirExists(dpath string) (bool, pb.ErrorReply) {
+	var e pb.ErrorReply
 	if _, err := os.Stat(DRMPATH); err == nil {
 		return true, e
 	} else if os.IsNotExist(err) {
 		//False case, pass
 	} else {
-		e.getErrorStruct(ERR_OTHER, fmt.Sprintf("Error: %s", err))
+		e = getErrorStruct(ERR_OTHER, fmt.Sprintf("Error: %s", err))
 	}
 
 	return false, e
 }
 
 //isDirEmpty checks whether directory is empty
-func isDirEmpty(dpath string) (bool, ErrorReply) {
+func isDirEmpty(dpath string) (bool, pb.ErrorReply) {
 	var r bool
-	var e ErrorReply
+	var e pb.ErrorReply
 	f, err := os.Open(dpath)
 	if err != nil {
-		e.getErrorStruct(ERR_OTHER, fmt.Sprintf("Error: %s", err))
+		e = getErrorStruct(ERR_OTHER, fmt.Sprintf("Error: %s", err))
 	} else {
 		defer f.Close()
 
@@ -184,10 +149,10 @@ func isDirEmpty(dpath string) (bool, ErrorReply) {
 }
 
 //makeDir creates a new directory specified by path, path can be relative also
-func makeDir(dpath string) ErrorReply {
-	var e ErrorReply
+func makeDir(dpath string) pb.ErrorReply {
+	var e pb.ErrorReply
 	if err := os.Mkdir(dpath, os.ModePerm); err != nil {
-		e.getErrorStruct(ERR_OTHER, fmt.Sprintf("Error: %s", err))
+		e = getErrorStruct(ERR_OTHER, fmt.Sprintf("Error: %s", err))
 	}
 	return e
 }
@@ -205,12 +170,12 @@ func getPciVendorID(d *goDrmSys.DeviceInfo) string {
 }
 
 //getDevices fetches all the info for gpus from goDrmSys package
-func getDevices() (GpuInfo, ErrorReply) {
-	var e ErrorReply
+func getDevices() (GpuInfo, pb.ErrorReply) {
+	var e pb.ErrorReply
 	var nodes GpuInfo
 	//check drm available on host
 	if !goDrmSys.DrmAvailable() {
-		e.getErrorStruct(ERR_OTHER, fmt.Sprintf("DRM unavailable!!"))
+		e = getErrorStruct(ERR_OTHER, fmt.Sprintf("DRM unavailable!!"))
 		return nodes, e
 	}
 
@@ -277,11 +242,11 @@ func checkVersion(ver string) bool {
 	return found
 }
 
-func checkCdiVersions() ErrorReply {
-	var e ErrorReply
+func checkCdiVersions() pb.ErrorReply {
+	var e pb.ErrorReply
 	//compare version of configuration file with supportedVersions
 	if checkVersion(conf.CdiVersion) == false {
-		e.getErrorStruct(ERR_VERSION_CONF,
+		e = getErrorStruct(ERR_VERSION_CONF,
 			fmt.Sprintf("Unsupported version: %s", conf.CdiVersion))
 		e.CdiVersion = VERSIONPLUGIN
 		return e
@@ -290,7 +255,7 @@ func checkCdiVersions() ErrorReply {
 	//compare version of environment variable with supportedVersions
 	//envCdiVersion = GetVersion()
 	if checkVersion(envCdiVersion) == false {
-		e.getErrorStruct(ERR_VERSION_ENV,
+		e = getErrorStruct(ERR_VERSION_ENV,
 			fmt.Sprintf("Unsupported version: %s", envCdiVersion))
 		e.CdiVersion = VERSIONPLUGIN
 	}
@@ -298,18 +263,18 @@ func checkCdiVersions() ErrorReply {
 }
 
 //VERSION command reply
-func version() VersionReply {
-	var r VersionReply
+func version() pb.VersionReply {
+	var r pb.VersionReply
 	r.CdiVersion = VERSIONPLUGIN
 	r.SupportedVersions = supportedVersions
 	return r
 }
 
 //INFO command reply
-func info(nodes *GpuInfo) InfoReply {
-	var r InfoReply
+func info(nodes *GpuInfo) pb.InfoReply {
+	var r pb.InfoReply
 	r.CdiVersion = VERSIONPLUGIN
-	r.Gpu = nodes.Num
+	r.Gpu = int32(nodes.Num)
 
 	for i := 0; i < nodes.Num; i++ {
 		r.Devices = append(r.Devices, nodes.DeviceID[i])
@@ -318,10 +283,9 @@ func info(nodes *GpuInfo) InfoReply {
 }
 
 //ADD command reply
-func add(nodes *GpuInfo, num int, conID string) (AddReply, ErrorReply) {
-	var r AddReply
-	var e ErrorReply
-	r.CdiVersion = envCdiVersion
+func add(nodes *GpuInfo, num int, conID string) pb.AddReply {
+	var r pb.AddReply
+	var e pb.ErrorReply
 
 	//check if whitelist is populated
 	whitelist := false
@@ -343,15 +307,16 @@ func add(nodes *GpuInfo, num int, conID string) (AddReply, ErrorReply) {
 				}
 			}
 		} else {
-			e = err
-			return r, e
+			r.AddError = &err
+			return r
 		}
 	}
 
 	// less no of gpu available
 	if num > count {
-		e.getErrorStruct(ERR_RESOURCE_UNAVAIL, fmt.Sprintf("No of GPU available: %d", count))
-		return r, e
+		e = getErrorStruct(ERR_RESOURCE_UNAVAIL, fmt.Sprintf("No of GPU available: %d", count))
+		r.AddError = &e
+		return r
 	}
 
 	// create container id folder inside gpu folder
@@ -366,18 +331,20 @@ func add(nodes *GpuInfo, num int, conID string) (AddReply, ErrorReply) {
 		//create directory for container
 		dpath := filepath.Join(nodes.DirPath[availableGpus[i]], string(conID))
 		if err := os.Mkdir(dpath, os.ModePerm); err != nil {
-			e.getErrorStruct(ERR_OTHER, fmt.Sprintf("Error: %s", err))
-			return r, e
+			e = getErrorStruct(ERR_OTHER, fmt.Sprintf("Error: %s", err))
+			r.AddError = &e
+			return r
 		}
 	}
 
-	return r, e
+	r.CdiVersion = envCdiVersion
+	return r
 }
 
 //DEL command reply
-func del(nodes *GpuInfo, conID string) (DelReply, ErrorReply) {
-	var r DelReply
-	var e ErrorReply
+func del(nodes *GpuInfo, conID string) pb.DelReply {
+	var r pb.DelReply
+	var e pb.ErrorReply
 
 	// search for container id inside gpu folder then delete
 	found := false
@@ -386,8 +353,9 @@ func del(nodes *GpuInfo, conID string) (DelReply, ErrorReply) {
 
 		if _, err1 := os.Stat(fpath); err1 == nil {
 			if err2 := os.Remove(fpath); err2 != nil {
-				e.getErrorStruct(ERR_OTHER, fmt.Sprintf("Error: %s", err2))
-				return r, e
+				e = getErrorStruct(ERR_OTHER, fmt.Sprintf("Error: %s", err2))
+				r.DelError = &e
+				return r
 			}
 
 			found = true
@@ -395,128 +363,125 @@ func del(nodes *GpuInfo, conID string) (DelReply, ErrorReply) {
 	}
 
 	if found == false {
-		e.getErrorStruct(ERR_REQUESTID_UNKNOWN, "")
+		e = getErrorStruct(ERR_REQUESTID_UNKNOWN, "")
+		r.DelError = &e
 	} else {
-		r = DelReply{envCdiVersion}
+		r.CdiVersion = envCdiVersion
 	}
 
-	return r, e
+	return r
 }
 
 // server is used to implement commandProto.CmdProtoServer
 type server struct{}
 
-// GetReply implements commandProto.CmdProtoServer
-func (s *server) GetReply(ctx context.Context, in *pb.CmdRequest) (*pb.CmdReply,
-	error) {
-	var retrn pb.CmdReply
-	var e ErrorReply
+func (s *server) Version(ctx context.Context, in *pb.Empty) (*pb.VersionReply, error) {
+	reply := pb.VersionReply(version())
 
-	//get command from client and run required function
-	command := in.GetCommand()
-	switch command {
-	case VERSION:
-		//VERSION command should never fail
-		reply := version()
-		retrn.Message = getJsonStruct(reply)
-		//retrn.Message = VERSIONPLUGIN
-	case INFO:
-		//store device data
-		nodes, err := getDevices()
-		if err.Code != ERR_NONE {
-			retrn.Message = getJsonStruct(err)
-		}
+	return &reply, nil
+}
+
+func (s *server) Info(ctx context.Context, in *pb.Empty) (*pb.InfoReply, error) {
+	var reply pb.InfoReply
+
+	//store device data
+	nodes, err := getDevices()
+	if err.Code != ERR_NONE {
+		reply.InfoError = &err
+	} else {
 		r := info(&nodes)
-		retrn.Message = getJsonStruct(r)
-
-	case ADD:
-		envCdiVersion = in.GetVersion()
-		if err := checkCdiVersions(); err.Code != ERR_NONE {
-			retrn.Message = getJsonStruct(err)
-			break
-		}
-		//check if gpu types present
-		if len(conf.Args.WantDeviceNodes) == 0 {
-			e.getErrorStruct(ERR_OTHER, fmt.Sprintf("want_device_nodes list is empty"))
-			retrn.Message = getJsonStruct(e)
-			break
-		}
-
-		req := in.GetRequest()
-		num, err := strconv.Atoi(strings.TrimPrefix(req, "gpu:"))
-		if err != nil {
-			e.getErrorStruct(ERR_RESOURCE_UNSUPPORT,
-				fmt.Sprintf("Unsupported resource request: %s", req))
-			retrn.Message = getJsonStruct(e)
-			break
-		}
-
-		id := in.GetRequestId()
-		if id == EMPTY {
-			e.getErrorStruct(ERR_REQUESTID_EMPTY, "")
-			retrn.Message = getJsonStruct(e)
-			break
-		}
-
-		//store device data
-		if nodes, err1 := getDevices(); err1.Code == ERR_NONE {
-			if r, err2 := add(&nodes, num, id); err2.Code == ERR_NONE {
-				retrn.Message = getJsonStruct(r)
-			} else {
-				retrn.Message = getJsonStruct(err2)
-			}
-		} else {
-			retrn.Message = getJsonStruct(err1)
-		}
-
-	case DEL:
-		envCdiVersion = in.GetVersion()
-		if err := checkCdiVersions(); err.Code != ERR_NONE {
-			retrn.Message = getJsonStruct(err)
-			break
-		}
-
-		id := in.GetRequestId()
-		if id == EMPTY {
-			e.getErrorStruct(ERR_REQUESTID_EMPTY, "")
-			retrn.Message = getJsonStruct(e)
-			break
-		}
-
-		//store device data
-		if nodes, err1 := getDevices(); err1.Code == ERR_NONE {
-			if r, err2 := del(&nodes, id); err2.Code == ERR_NONE {
-				retrn.Message = getJsonStruct(r)
-			} else {
-				retrn.Message = getJsonStruct(err2)
-			}
-		} else {
-			retrn.Message = getJsonStruct(err1)
-		}
-
-	case EMPTY:
-		e.getErrorStruct(ERR_CMD_EMPTY, "")
-		retrn.Message = getJsonStruct(e)
-		//retrn.Message = "=command empty"
-
-	default:
-		e.getErrorStruct(ERR_COMMAND_UNSUPPORT,
-			fmt.Sprintf("Unsupported command %s", command))
-		retrn.Message = getJsonStruct(e)
-		//retrn.Message = "=command not supported"
+		reply.CdiVersion = r.CdiVersion
+		reply.Gpu = r.Gpu
+		reply.Devices = r.Devices
 	}
 
-	return &retrn, nil
+	return &reply, nil
+}
+
+func (s *server) Add(ctx context.Context, in *pb.AddRequest) (*pb.AddReply, error) {
+	var reply pb.AddReply
+	var e pb.ErrorReply
+
+	envCdiVersion = in.GetVersion()
+	if err := checkCdiVersions(); err.Code != ERR_NONE {
+		reply.AddError = &err
+		return &reply, nil
+	}
+	//check if gpu types present
+	if len(conf.Args.WantDeviceNodes) == 0 {
+		e = getErrorStruct(ERR_OTHER, fmt.Sprintf("want_device_nodes list is empty"))
+		reply.AddError = &e
+		return &reply, nil
+	}
+
+	req := in.GetRequest()
+	num, err := strconv.Atoi(strings.TrimPrefix(req, "gpu:"))
+	if err != nil {
+		e = getErrorStruct(ERR_RESOURCE_UNSUPPORT,
+			fmt.Sprintf("Unsupported resource request: %s", req))
+		reply.AddError = &e
+		return &reply, nil
+	}
+
+	id := in.GetRequestId()
+	if id == EMPTY {
+		e = getErrorStruct(ERR_REQUESTID_EMPTY, "")
+		reply.AddError = &e
+		return &reply, nil
+	}
+
+	//store device data
+	if nodes, err1 := getDevices(); err1.Code == ERR_NONE {
+		reply = add(&nodes, num, id)
+	} else {
+		reply.AddError = &err1
+	}
+	return &reply, nil
+}
+
+func (s *server) Del(ctx context.Context, in *pb.DelRequest) (*pb.DelReply, error) {
+	var reply pb.DelReply
+	var e pb.ErrorReply
+
+	envCdiVersion = in.GetVersion()
+	if err := checkCdiVersions(); err.Code != ERR_NONE {
+		reply.DelError = &err
+		return &reply, nil
+	}
+
+	id := in.GetRequestId()
+	if id == EMPTY {
+		e = getErrorStruct(ERR_REQUESTID_EMPTY, "")
+		reply.DelError = &e
+		return &reply, nil
+	}
+
+	//store device data
+	if nodes, err1 := getDevices(); err1.Code == ERR_NONE {
+		reply = del(&nodes, id)
+	} else {
+		reply.DelError = &err1
+	}
+	return &reply, nil
 }
 
 func main() {
-	//get conf file from stdin
-	dec := json.NewDecoder(os.Stdin)
-	if err := dec.Decode(&conf); err != nil {
-		log.Fatalf("%s, %d\n", errorMsg[ERR_CONF_READ], ERR_CONF_READ)
-	}
+	//get conf file from commandline
+	confFile := flag.String("f", "drm.conf", "CDI Configuration File")
+	flag.Parse()
 
-	lis, err := net.Listen("tcp", port)
+	file, err1 := os.Open(*confFile)
+	if err1 != nil {
+		log.Fatalf("%s, %d\n", errorMsg[ERR_CONF_READ], ERR_CONF_READ)
+	} else {
+		dec := json.NewDecoder(file)
+		if err2 := dec.Decode(&conf); err2 != nil {
+			log.Fatalf("%s, %d\n", errorMsg[ERR_CONF_READ], ERR_CONF_READ)
+		}
+	}
+	file.Close()
+
+	lis, err := net.Listen("tcp", PORT)
 	if err != nil {
 		log.Fatalf("failed to listen: %v\n", err)
 	}
