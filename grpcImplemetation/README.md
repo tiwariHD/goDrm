@@ -5,6 +5,7 @@ Using grpc and protobuf3 messages for communication between server and client co
 Run Server then Client:
 
 #grpcDrmServer -f grpcDrmServer/drm.conf
+
 #grpcDrmClient
 
 ## Output of grpcDrmClient.
